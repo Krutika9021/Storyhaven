@@ -1,4 +1,3 @@
--- Create profiles table for user data
 CREATE TABLE public.profiles (
   id UUID NOT NULL REFERENCES auth.users ON DELETE CASCADE PRIMARY KEY,
   username TEXT UNIQUE,
@@ -7,7 +6,6 @@ CREATE TABLE public.profiles (
 
 ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
 
--- Profiles policies
 CREATE POLICY "Profiles are viewable by everyone" 
 ON public.profiles 
 FOR SELECT 
@@ -23,7 +21,6 @@ ON public.profiles
 FOR INSERT 
 WITH CHECK (auth.uid() = id);
 
--- Create trigger function for new users
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS TRIGGER
 LANGUAGE plpgsql
@@ -36,12 +33,10 @@ BEGIN
 END;
 $$;
 
--- Trigger for automatic profile creation
 CREATE TRIGGER on_auth_user_created
   AFTER INSERT ON auth.users
   FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
 
--- Create books table
 CREATE TABLE public.books (
   id UUID NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY,
   title TEXT NOT NULL,
@@ -57,7 +52,6 @@ CREATE TABLE public.books (
 
 ALTER TABLE public.books ENABLE ROW LEVEL SECURITY;
 
--- Books policies
 CREATE POLICY "Books are viewable by everyone" 
 ON public.books 
 FOR SELECT 
@@ -78,7 +72,6 @@ ON public.books
 FOR DELETE 
 USING (auth.uid() = created_by);
 
--- Create ratings table
 CREATE TABLE public.ratings (
   id UUID NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY,
   book_id UUID NOT NULL REFERENCES public.books(id) ON DELETE CASCADE,
@@ -91,7 +84,6 @@ CREATE TABLE public.ratings (
 
 ALTER TABLE public.ratings ENABLE ROW LEVEL SECURITY;
 
--- Ratings policies
 CREATE POLICY "Ratings are viewable by everyone" 
 ON public.ratings 
 FOR SELECT 
@@ -112,7 +104,6 @@ ON public.ratings
 FOR DELETE 
 USING (auth.uid() = user_id);
 
--- Create reviews table
 CREATE TABLE public.reviews (
   id UUID NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY,
   book_id UUID NOT NULL REFERENCES public.books(id) ON DELETE CASCADE,
@@ -125,7 +116,6 @@ CREATE TABLE public.reviews (
 
 ALTER TABLE public.reviews ENABLE ROW LEVEL SECURITY;
 
--- Reviews policies
 CREATE POLICY "Reviews are viewable by everyone" 
 ON public.reviews 
 FOR SELECT 
@@ -146,7 +136,6 @@ ON public.reviews
 FOR DELETE 
 USING (auth.uid() = user_id);
 
--- Create function to update updated_at timestamp
 CREATE OR REPLACE FUNCTION public.update_updated_at_column()
 RETURNS TRIGGER AS $$
 BEGIN
@@ -155,7 +144,6 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SET search_path = public;
 
--- Add triggers for updated_at
 CREATE TRIGGER update_ratings_updated_at
 BEFORE UPDATE ON public.ratings
 FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
