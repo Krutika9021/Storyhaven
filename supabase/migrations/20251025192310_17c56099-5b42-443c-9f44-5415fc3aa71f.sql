@@ -1,7 +1,5 @@
--- Create role enum
 CREATE TYPE public.app_role AS ENUM ('admin', 'user');
 
--- Create user_roles table
 CREATE TABLE public.user_roles (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
@@ -10,16 +8,13 @@ CREATE TABLE public.user_roles (
   UNIQUE (user_id, role)
 );
 
--- Enable RLS on user_roles
 ALTER TABLE public.user_roles ENABLE ROW LEVEL SECURITY;
 
--- Allow users to view their own roles
 CREATE POLICY "Users can view their own roles"
 ON public.user_roles
 FOR SELECT
 USING (auth.uid() = user_id);
 
--- Create security definer function to check roles
 CREATE OR REPLACE FUNCTION public.has_role(_user_id UUID, _role app_role)
 RETURNS BOOLEAN
 LANGUAGE SQL
@@ -35,7 +30,6 @@ AS $$
   )
 $$;
 
--- Create function to check if user is admin
 CREATE OR REPLACE FUNCTION public.is_admin(_user_id UUID)
 RETURNS BOOLEAN
 LANGUAGE SQL
@@ -46,32 +40,27 @@ AS $$
   SELECT public.has_role(_user_id, 'admin')
 $$;
 
--- Update book creation policy to only allow admins
 DROP POLICY IF EXISTS "Authenticated users can create books" ON public.books;
 CREATE POLICY "Only admins can create books"
 ON public.books
 FOR INSERT
 WITH CHECK (public.is_admin(auth.uid()));
 
--- Update book update policy to only allow admins
 DROP POLICY IF EXISTS "Users can update their own books" ON public.books;
 CREATE POLICY "Only admins can update books"
 ON public.books
 FOR UPDATE
 USING (public.is_admin(auth.uid()));
 
--- Update book delete policy to only allow admins
 DROP POLICY IF EXISTS "Users can delete their own books" ON public.books;
 CREATE POLICY "Only admins can delete books"
 ON public.books
 FOR DELETE
 USING (public.is_admin(auth.uid()));
 
--- Add book_content field for full book text
 ALTER TABLE public.books
 ADD COLUMN book_content TEXT;
 
--- Create feedback table
 CREATE TABLE public.feedback (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
@@ -104,7 +93,6 @@ ON public.feedback
 FOR DELETE
 USING (auth.uid() = user_id);
 
--- Create notes table
 CREATE TABLE public.notes (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
@@ -137,7 +125,6 @@ ON public.notes
 FOR DELETE
 USING (auth.uid() = user_id);
 
--- Add triggers for updated_at
 CREATE TRIGGER update_feedback_updated_at
 BEFORE UPDATE ON public.feedback
 FOR EACH ROW
@@ -148,7 +135,6 @@ BEFORE UPDATE ON public.notes
 FOR EACH ROW
 EXECUTE FUNCTION public.update_updated_at_column();
 
--- Update handle_new_user function to assign default 'user' role
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS TRIGGER
 LANGUAGE plpgsql
@@ -156,11 +142,9 @@ SECURITY DEFINER
 SET search_path TO 'public'
 AS $$
 BEGIN
-  -- Insert profile
   INSERT INTO public.profiles (id, username)
   VALUES (new.id, new.raw_user_meta_data->>'username');
   
-  -- Assign default 'user' role
   INSERT INTO public.user_roles (user_id, role)
   VALUES (new.id, 'user');
   
